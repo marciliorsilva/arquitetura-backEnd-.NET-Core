@@ -5,11 +5,14 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using curso.api.Business.Entities;
 using curso.api.Filters;
+using curso.api.Infra.Data;
 using curso.api.Model;
 using curso.api.Model.Usuarios;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -20,6 +23,11 @@ namespace curso.api.Controllers
     public class UsuarioController : ControllerBase
     {
 
+        /// <summary>
+        /// Este serviço permite autenticar um usuário cadastrado e ativo
+        /// </summary>
+        /// <param name="loginViewModelInput">View model do login</param>
+        /// <returns>Retorna status ok, dados do usuario e o token em caso de</returns>
         [SwaggerResponse(statusCode:200,  description: "Sucesso ao autenticar", Type = typeof(LoginViewModelInput))]
         [SwaggerResponse(statusCode: 400, description: "Campos obrigatórios", Type = typeof(ValidaCampoViewModelOutput))]
         [SwaggerResponse(statusCode: 500, description: "Erro interno", Type = typeof(ErroGenericoViewModel))]
@@ -61,11 +69,35 @@ namespace curso.api.Controllers
             });
         }
 
+        /// <summary>
+        /// Este serviço permite cadastrar um usuário cadastrado não existente 
+        /// </summary>
+        /// <param name="registroViewModelInput">View model do registro de login</param>
+        [SwaggerResponse(statusCode: 200, description: "Sucesso ao autenticar", Type = typeof(LoginViewModelInput))]
+        [SwaggerResponse(statusCode: 400, description: "Campos obrigatórios", Type = typeof(ValidaCampoViewModelOutput))]
+        [SwaggerResponse(statusCode: 500, description: "Erro interno", Type = typeof(ErroGenericoViewModel))]
         [HttpPost]
         [Route("registrar")]
         [ValidacaoModelStateCustomizado]
         public IActionResult Registrar(RegistroViewModelInput registroViewModelInput)
         {
+            var optionsBuilder = new DbContextOptionsBuilder<CursoDbContext>();
+            optionsBuilder.UseSqlServer("Server=DESKTOP-RIIEEPJ\\SQLEXPRESS; Database=teste; Trusted_Connection=True;MultipleActiveResultSets=true");
+            CursoDbContext contexto = new CursoDbContext(optionsBuilder.Options);
+
+            var migracoesPendentes = contexto.Database.GetPendingMigrations();
+
+            if (migracoesPendentes.Count() > 0)
+            {
+                contexto.Database.Migrate();
+            }
+            var usuario = new Usuario();
+            usuario.Login = registroViewModelInput.Login;
+            usuario.Senha = registroViewModelInput.Senha;
+            usuario.Email = registroViewModelInput.Email;
+            contexto.Usuario.Add(usuario);
+            contexto.SaveChanges();
+
             return Created("", registroViewModelInput);
         }
     }
